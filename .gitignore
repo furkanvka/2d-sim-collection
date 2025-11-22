@@ -27,7 +27,7 @@ Makefile
 *.swp
 *~
 
-# --- macOS & Windows sistem dosyaları ---
-.DS_Store
-Thumbs.db
-Desktop.ini
+
+# Derleme çıktıları
+out/
+*.class
