@@ -5,9 +5,9 @@
 
 
 #define G 6.674E-11 // m3/(kg·s2)
-#define PIXEL_KM 20000.0f
+#define PIXEL_KM 1000.0f
 #define TRAIL_DROP_RATE 0.05f
-#define SİM_SPEDD 100.f
+#define SIM_SPEED 100.f
 
 class Body : public sf::CircleShape
 {
@@ -20,7 +20,7 @@ public:
 
     std::vector<sf::CircleShape> trailPoints;
     sf::Clock trailClock; 
-    const size_t maxTrailLength = 200; 
+    size_t maxTrailLength = 200; 
 
 
     Body(float x, float y, float r, double m, sf::Color color, bool t);
@@ -71,6 +71,7 @@ void Body::updateTrail() {
     }
 }
 
+
 // --- Gravity Calculation Function ---
 void calculateGravityEffects(std::vector<Body>& bodies) {
     
@@ -111,6 +112,51 @@ void calculateGravityEffects(std::vector<Body>& bodies) {
 }
 
 
+// --- Collision & Merge Function ---
+void handleCollisions(std::vector<Body>& bodies) {
+    for (int i = 0; i < bodies.size(); i++) {
+        for (int j = i + 1; j < bodies.size(); j++) {
+            Body& body1 = bodies[i];
+            Body& body2 = bodies[j];
+
+            sf::Vector2f delta = body2.getPosition() - body1.getPosition();
+            float distance = std::sqrt(delta.x * delta.x + delta.y * delta.y);
+
+            if (distance < body1.getRadius() + body2.getRadius()) {
+                // Momentum korunarak yeni hız hesapla
+                sf::Vector2f newVelocity = (body1.velocity * (float)body1.mass + body2.velocity * (float)body2.mass) / (float)(body1.mass + body2.mass);
+                
+                // Yeni kütle
+                double newMass = body1.mass + body2.mass;
+
+                // Yeni yarıçap (basit hacim koruma)
+                float newRadius = std::cbrt(std::pow(body1.getRadius(),3) + std::pow(body2.getRadius(),3));
+
+                // Yeni cisim oluştur
+                Body mergedBody(
+                    (body1.getPosition().x + body2.getPosition().x) / 2.f,
+                    (body1.getPosition().y + body2.getPosition().y) / 2.f,
+                    newRadius,
+                    newMass,
+                    sf::Color::White, // Çarpışmadan sonra renk
+                    true
+                );
+                mergedBody.velocity = newVelocity;
+
+                // Eski cisimleri sil ve yeni cismi ekle
+                bodies.erase(bodies.begin() + j);
+                bodies.erase(bodies.begin() + i);
+                bodies.push_back(mergedBody);
+
+                i--; // Dış döngüyü tekrar kontrol et
+                break;
+            }
+        }
+    }
+}
+
+
+
 // --- Main Function ---
 int main()
 {
@@ -140,14 +186,27 @@ int main()
         }
         
         float dt = clock.restart().asSeconds();
-        dt *= SİM_SPEDD;
         
-        calculateGravityEffects(bodies);
+        for(int i = 0;i < SIM_SPEED;i++){
+            calculateGravityEffects(bodies);
 
-        window.clear(sf::Color::Black);
-        for (auto& body : bodies) {
-            body.updatePos(dt);
+            window.clear(sf::Color::Black);
+            for (auto& body : bodies) {
+                body.updatePos(dt);
+            }
+
+            handleCollisions(bodies);
+            
+
+
+            for (const auto& body : bodies) {
+                window.draw(body);
+            }
+
+
         }
+        
+
         for (const auto& body : bodies) {
             if (body.trail) {
                 for (const auto& point : body.trailPoints) {
@@ -157,12 +216,6 @@ int main()
         }
 
 
-        for (const auto& body : bodies) {
-            window.draw(body);
-        }
-
-
-        
         
         window.display();
     }
